@@ -20,7 +20,7 @@
  * Команда, выполняемая на стороне клиента, имеет следующий вид: cprem path.to.src.file host@path.to.dst.dir .
  */
 
-char *read_request(int session_fd) {
+static char *read_request(int session_fd) {
     int request_buffer_size = write_request_max_size();
 
     char *request = (char *) calloc(request_buffer_size, sizeof(char));
@@ -31,7 +31,7 @@ char *read_request(int session_fd) {
     return request;
 }
 
-void process_request(const char *request) {
+static void process_request(const char *request) {
     WriteRequest *write_request = deserialize_write_request(request);
     printf("Recieved write request. [dst_path: %s][is_folder: %d][data: %d]\n",
            write_request->dst_path,
@@ -58,7 +58,7 @@ void process_request(const char *request) {
     free_write_request(write_request);
 }
 
-void write_ok(int session_fd) {
+static void write_ok(int session_fd) {
     const char *ok = "ok";
     int write_count = write(session_fd, ok, strlen(ok));
     if (write_count < 0) {
@@ -66,7 +66,7 @@ void write_ok(int session_fd) {
     }
 }
 
-void handle_session(int session_fd) {
+static void handle_session(int session_fd) {
     char *request = read_request(session_fd);
     process_request(request);
     write_ok(session_fd);
@@ -74,20 +74,8 @@ void handle_session(int session_fd) {
     free(request);
 }
 
-int create_socket(const char *hostname, const char *portname) {
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = 0;
-    hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG;
-
-    struct addrinfo *addr = 0;
-    int err = getaddrinfo(hostname, portname, &hints, &addr);
-    if (err != 0) {
-        die(__LINE__, "failed to resolve local socket address (err=%d)", err);
-    }
-
+static int create_socket(const char *hostname, const char *portname) {
+    struct addrinfo *addr = get_addrinfo_simple(hostname, portname);
     int server_fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
     if (server_fd == -1) {
         die(__LINE__, "failed to create socket %s", strerror(errno));

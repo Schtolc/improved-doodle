@@ -1,7 +1,8 @@
 #include "contrib/unity/unity.h"
-#include "write_request.h"
+#include "helpers.h"
 #include "stdlib.h"
 #include "string.h"
+#include "write_request.h"
 
 void test_serialization_helper(WriteRequest * expected) {
     char * serialized = serialize_write_request(expected);
@@ -77,6 +78,30 @@ void test_serialization_binary_data() {
     free_write_request(write_request);
 }
 
+void test_split_host_and_dir() {
+    char host[32];
+    char dir[256];
+
+    int split_res = split_host_and_dir("host@/path/to/dir", host, dir);
+    TEST_ASSERT_EQUAL(split_res, 0);
+    TEST_ASSERT_EQUAL_STRING(host, "host");
+    TEST_ASSERT_EQUAL_STRING(dir, "/path/to/dir");
+
+    split_res = split_host_and_dir("0@/", host, dir);
+    TEST_ASSERT_EQUAL(split_res, 0);
+    TEST_ASSERT_EQUAL_STRING(host, "0");
+    TEST_ASSERT_EQUAL_STRING(dir, "/");
+
+    split_res = split_host_and_dir("@/path/to/dir", host, dir);
+    TEST_ASSERT_EQUAL(split_res, -1);
+
+    split_res = split_host_and_dir("host@", host, dir);
+    TEST_ASSERT_EQUAL(split_res, -1);
+
+    split_res = split_host_and_dir("host/path/to/dir", host, dir);
+    TEST_ASSERT_EQUAL(split_res, -1);
+}
+
 void test_serialization_long_strings() {
     const char * data = "VMLcam2W2ldtZsruqzDp3KVsDJWwzSl3XcKEix3EKY0aDjAzgBTf80Wt3Z81k156K25NtkitoP754GONydrhf8cpgKZw"
                         "zorQe5s2hDeUyNhR3bzsgkR3Ao6k7WcEFeWJdTZIj73wK6AVquAJqxMxjcXJEMWtchaNggMQklj8MgU2b2ukFnOnNc6u"
@@ -115,11 +140,15 @@ void test_serialization_long_strings() {
 
 int main() {
     UNITY_BEGIN();
+
     RUN_TEST(test_serialization_simple);
     RUN_TEST(test_serialization_folder);
     RUN_TEST(test_serialization_empty_data);
     RUN_TEST(test_serialization_root_path);
     RUN_TEST(test_serialization_long_strings);
     RUN_TEST(test_serialization_binary_data);
+
+    RUN_TEST(test_split_host_and_dir);
+
     return UNITY_END();
 }
