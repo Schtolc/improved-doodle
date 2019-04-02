@@ -33,7 +33,7 @@ static char *read_request(int session_fd) {
 
 static void process_request(const char *request) {
     WriteRequest *write_request = deserialize_write_request(request);
-    printf("Recieved write request. [dst_path: %s][is_folder: %d][data: %d]\n",
+    printf("Recieved write request. [dst_path: %s][is_folder: %d][data_len: %d]\n",
            write_request->dst_path,
            write_request->is_folder,
            write_request->data_length);

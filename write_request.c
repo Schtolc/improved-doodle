@@ -1,3 +1,5 @@
+#include <sys/stat.h>
+#include <errno.h>
 #include "write_request.h"
 
 #include "stdlib.h"
@@ -74,6 +76,39 @@ WriteRequest *new_write_request(int data_length) {
     write_request->dst_path = (char *) calloc(DST_PATH_SIZE, sizeof(char));
     write_request->data_length = data_length;
     write_request->data = (uint8_t *) calloc(write_request->data_length, sizeof(uint8_t));
+    return write_request;
+}
+
+WriteRequest *new_write_request_from_file(const char *file_path, const char *dst_path) {
+    struct stat path_stat;
+    int lstat_res = lstat(file_path, &path_stat);
+    if (lstat_res != 0) {
+        die(__LINE__, "failed to lstat file %s; %s", file_path, strerror(errno));
+    }
+
+    WriteRequest *write_request = NULL;
+    if (S_ISREG(path_stat.st_mode)) {
+        FILE *fileptr = fopen(file_path, "rb");
+        if (fileptr == NULL) {
+            die(__LINE__, "failed to open file %s", file_path);
+        }
+        fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
+        int filelen = ftell(fileptr);         // Get the current byte offset in the file
+        rewind(fileptr);                      // Jump back to the beginning of the file
+
+        write_request = new_write_request(filelen);
+        strncpy(write_request->dst_path, dst_path, dst_path_max_size());
+        write_request->is_folder = false;
+        fread(write_request->data, filelen, 1, fileptr);
+        fclose(fileptr);
+    } else if (S_ISDIR(path_stat.st_mode)) {
+        write_request = new_write_request(0);
+        strncpy(write_request->dst_path, dst_path, dst_path_max_size());
+        write_request->is_folder = true;
+    } else {
+        die(__LINE__, "%s is not file or directory", file_path);
+    }
+
     return write_request;
 }
 

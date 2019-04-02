@@ -12,13 +12,18 @@ typedef struct WriteRequest {
     uint8_t *data;
 } WriteRequest;
 
-WriteRequest * new_write_request(int data_length);
-void free_write_request(WriteRequest * write_request);
+WriteRequest *new_write_request(int data_length);
 
-char * serialize_write_request(const WriteRequest * input);
-WriteRequest * deserialize_write_request(const char * input);
+WriteRequest *new_write_request_from_file(const char *file_path, const char *dst_path);
+
+void free_write_request(WriteRequest *write_request);
+
+char *serialize_write_request(const WriteRequest *input);
+
+WriteRequest *deserialize_write_request(const char *input);
 
 int write_request_max_size();
+
 int dst_path_max_size();
 
 #endif //RCP_DIVAN_WRITE_REQUEST_H

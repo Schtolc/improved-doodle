@@ -1,4 +1,5 @@
 #include <netdb.h>
+#include <libgen.h>
 #include "helpers.h"
 
 #include "stdio.h"
@@ -53,4 +54,31 @@ struct addrinfo *get_addrinfo_simple(const char *hostname, const char *portname)
         die(__LINE__, "failed to resolve server socket address (err=%d)", err);
     }
     return addr;
+}
+
+void join_src_file_and_dst_dir(const char *src_file, char *dst_dir) {
+    char basename[64];
+    basename_r(src_file, basename);
+    int dst_dir_end = strlen(dst_dir) - 1;
+    if (dst_dir[dst_dir_end] != '/') {
+        dst_dir[dst_dir_end + 1] = '/';
+        dst_dir[dst_dir_end + 2] = '\0';
+    }
+    strncat(dst_dir, basename, 64);
+}
+
+void remove_last_path_part(char *path) {
+    int i = strlen(path) - 1;
+    while (path[i] == '/')
+        --i;
+    for (; i >= 0; --i) {
+        if (path[i] == '/') {
+            path[i] = '\0';
+            break;
+        }
+    }
+    if (strlen(path) == 0) {
+        path[0] = '/';
+        path[1] = '\0';
+    }
 }
