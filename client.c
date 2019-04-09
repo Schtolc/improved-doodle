@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
     die_if(connect_res < 0, "failed to connect to server socket %s", strerror(errno));
 
     // send write request
-    WriteRequest *write_request = new_write_request_from_file(argv[1], dst_path);
+    WriteRequest *write_request = load_write_request(argv[1], dst_path);
     char *buffer = serialize_write_request(write_request);
     int n = write(client_fd, buffer, write_request_max_size());
     die_if(n < 0, "failed to write to socket %s", strerror(errno));

@@ -60,29 +60,6 @@ void test_serialization_binary_data() {
     free_write_request(write_request);
 }
 
-void test_join_src_file_and_dst_dir() {
-    char dst_dir[256];
-    strncpy(dst_dir, "/cpy/", 256);
-    join_src_file_and_dst_dir("/tmp/trash.txt", dst_dir);
-    TEST_ASSERT_EQUAL_STRING(dst_dir, "/cpy/trash.txt");
-
-    strncpy(dst_dir, "/cpy", 256);
-    join_src_file_and_dst_dir("/tmp/trash.txt", dst_dir);
-    TEST_ASSERT_EQUAL_STRING(dst_dir, "/cpy/trash.txt");
-
-    strncpy(dst_dir, "/", 256);
-    join_src_file_and_dst_dir("/tmp/trash.txt", dst_dir);
-    TEST_ASSERT_EQUAL_STRING(dst_dir, "/trash.txt");
-
-    strncpy(dst_dir, "/cpy", 256);
-    join_src_file_and_dst_dir("/trash.txt", dst_dir);
-    TEST_ASSERT_EQUAL_STRING(dst_dir, "/cpy/trash.txt");
-
-    strncpy(dst_dir, "/cpy", 256);
-    join_src_file_and_dst_dir("/trash/", dst_dir);
-    TEST_ASSERT_EQUAL_STRING(dst_dir, "/cpy/trash");
-}
-
 void test_remove_last_path_part() {
     char path[256];
     strncpy(path, "/cpy/trash.txt", 256);
@@ -141,8 +118,6 @@ int main() {
     RUN_TEST(test_serialization_root_path);
     RUN_TEST(test_serialization_long_strings);
     RUN_TEST(test_serialization_binary_data);
-
-    RUN_TEST(test_join_src_file_and_dst_dir);
 
     RUN_TEST(test_remove_last_path_part);
 

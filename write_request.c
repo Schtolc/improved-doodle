@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <zconf.h>
 #include <libgen.h>
+#include <fcntl.h>
 #include "write_request.h"
 
 #include "stdlib.h"
@@ -11,8 +12,10 @@
 #include "helpers.h"
 
 #define DST_DIR_SIZE 256
-#define DATA_SIZE 1024
+#define DATA_SIZE 16384
 #define DATA_LENGTH_SIZE 8
+
+#define TAR_NAME "my.tar.gz"
 
 static void validate_write_request(const WriteRequest *write_request) {
     if (write_request->dst_dir == NULL || strlen(write_request->dst_dir) == 0) {
@@ -78,8 +81,7 @@ WriteRequest *new_write_request(int data_length) {
     return write_request;
 }
 
-WriteRequest *new_write_request_from_file(char *file_path, const char *dst_path) {
-        // cd file_path withour last /
+WriteRequest *load_write_request(char *file_path, const char *dst_dir) {
     char file_name[64];
     basename_r(file_path, file_name);
     remove_last_path_part(file_path);
@@ -88,23 +90,43 @@ WriteRequest *new_write_request_from_file(char *file_path, const char *dst_path)
     die_if(chdir_res == -1, "failed to chdir %s", strerror(errno));
 
     char tar_command[256];
-    snprintf(tar_command, 256, "tar -czvf my.tar.gz %s", file_name);
+    snprintf(tar_command, 256, "tar -czvf %s %s", TAR_NAME, file_name);
     int system_res = system(tar_command);
     die_if(system_res == -1, "failed to tar %s", file_name);
 
     WriteRequest *write_request = NULL;
     FILE *fileptr = fopen("my.tar.gz", "rb");
-    die_if(fileptr == NULL, "failed to open file my.tar.gz");
+    die_if(fileptr == NULL, "failed to open file "TAR_NAME);
 
     fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
     int filelen = ftell(fileptr);         // Get the current byte offset in the file
     rewind(fileptr);                      // Jump back to the beginning of the file
 
     write_request = new_write_request(filelen);
-    strncpy(write_request->dst_dir, dst_path, dst_path_max_size());
+    strncpy(write_request->dst_dir, dst_dir, dst_path_max_size());
     fread(write_request->data, filelen, 1, fileptr);
     fclose(fileptr);
     return write_request;
+}
+
+void dump_write_request(WriteRequest * write_request) {
+    int chdir_res = chdir(write_request->dst_dir);
+    die_if(chdir_res == -1, "failed to chdir %s", strerror(errno));
+
+    int fd = open("my.tar.gz", O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+        die_if(__LINE__, "failed to open file %s: %s", write_request->dst_dir, strerror(errno));
+    }
+    int write_res = write(fd, write_request->data, write_request->data_length);
+    if (write_res < 0) {
+        die_if(__LINE__, "failed to write to file %s", strerror(errno));
+    }
+    close(fd);
+
+    int system_res = system("tar -xzvf "TAR_NAME);
+    die_if(system_res == -1, "failed to untar");
+    int remove_res = remove(TAR_NAME);
+    die_if(remove_res != 0, "failed to remove tar");
 }
 
 void free_write_request(WriteRequest *write_request) {

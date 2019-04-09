@@ -13,7 +13,9 @@ typedef struct WriteRequest {
 
 WriteRequest *new_write_request(int data_length);
 
-WriteRequest *new_write_request_from_file(char *file_path, const char *dst_path);
+WriteRequest *load_write_request(char *file_path, const char *dst_dir);
+
+void dump_write_request(WriteRequest * write_request);
 
 void free_write_request(WriteRequest *write_request);
 

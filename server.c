@@ -20,57 +20,24 @@
  * Команда, выполняемая на стороне клиента, имеет следующий вид: cprem path.to.src.file host@path.to.dst.dir .
  */
 
-static char *read_request(int session_fd) {
+static void handle_session(int session_fd) {
     int request_buffer_size = write_request_max_size();
 
     char *request = (char *) calloc(request_buffer_size, sizeof(char));
     int read_count = read(session_fd, request, request_buffer_size);
-    if (read_count < 0) {
-        die_if(__LINE__, "failed to read from socket %s", strerror(errno));
-    }
-    return request;
-}
-
-static void process_request(const char *request) {
+    die_if(read_count < 0, "failed to read from socket %s", strerror(errno));
+    
     WriteRequest *write_request = deserialize_write_request(request);
     printf("Recieved write request. [dst_dir: %s][data_len: %d]\n",
            write_request->dst_dir,
            write_request->data_length);
+    dump_write_request(write_request);
 
-    int chdir_res = chdir(write_request->dst_dir);
-    die_if(chdir_res == -1, "failed to chdir %s", strerror(errno));
-
-    int fd = open("my.tar.gz", O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
-    if (fd == -1) {
-        die_if(__LINE__, "failed to open file %s: %s", write_request->dst_dir, strerror(errno));
-    }
-    int write_res = write(fd, write_request->data, write_request->data_length);
-    if (write_res < 0) {
-        die_if(__LINE__, "failed to write to file %s", strerror(errno));
-    }
-    close(fd);
-
-    int system_res = system("tar -xzvf my.tar.gz");
-    die_if(system_res == -1, "failed to untar");
-    int remove_res = remove("my.tar.gz");
-    die_if(remove_res != 0, "failed to remove tar");
-
-    free_write_request(write_request);
-}
-
-static void write_ok(int session_fd) {
     const char *ok = "ok";
     int write_count = write(session_fd, ok, strlen(ok));
-    if (write_count < 0) {
-        die_if(__LINE__, "failed to write to socket %s", strerror(errno));
-    }
-}
+    die_if(write_count < 0, "failed to write to socket %s", strerror(errno));
 
-static void handle_session(int session_fd) {
-    char *request = read_request(session_fd);
-    process_request(request);
-    write_ok(session_fd);
-
+    free_write_request(write_request);
     free(request);
 }
 
