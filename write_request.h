@@ -5,8 +5,7 @@
 #include "stdint.h"
 
 typedef struct WriteRequest {
-    char *dst_path;
-    bool is_folder;
+    char *dst_dir;
 
     int data_length;
     uint8_t *data;
@@ -14,7 +13,7 @@ typedef struct WriteRequest {
 
 WriteRequest *new_write_request(int data_length);
 
-WriteRequest *new_write_request_from_file(const char *file_path, const char *dst_path);
+WriteRequest *new_write_request_from_file(char *file_path, const char *dst_path);
 
 void free_write_request(WriteRequest *write_request);
 

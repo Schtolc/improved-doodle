@@ -7,9 +7,8 @@
 void test_serialization_helper(WriteRequest *expected) {
     char *serialized = serialize_write_request(expected);
     WriteRequest *deserialized = deserialize_write_request(serialized);
-    TEST_ASSERT_EQUAL(expected->is_folder, deserialized->is_folder);
     TEST_ASSERT_EQUAL(expected->data_length, deserialized->data_length);
-    TEST_ASSERT_EQUAL_STRING(expected->dst_path, deserialized->dst_path);
+    TEST_ASSERT_EQUAL_STRING(expected->dst_dir, deserialized->dst_dir);
     if (expected->data_length != 0) {
         TEST_ASSERT_EQUAL_UINT8_ARRAY(expected->data, deserialized->data, expected->data_length);
     }
@@ -22,21 +21,7 @@ void test_serialization_simple() {
     const char *data = "abcdefg";
 
     WriteRequest *write_request = new_write_request(strlen(data));
-    strncpy(write_request->dst_path, "/tmp/trash.txt", dst_path_max_size());
-    write_request->is_folder = false;
-    memcpy(write_request->data, data, strlen(data));
-
-    test_serialization_helper(write_request);
-
-    free_write_request(write_request);
-}
-
-void test_serialization_folder() {
-    const char *data = "abcdefg";
-
-    WriteRequest *write_request = new_write_request(strlen(data));
-    strncpy(write_request->dst_path, "/tmp/trash.txt", dst_path_max_size());
-    write_request->is_folder = true;
+    strncpy(write_request->dst_dir, "/tmp/trash.txt", dst_path_max_size());
     memcpy(write_request->data, data, strlen(data));
 
     test_serialization_helper(write_request);
@@ -46,8 +31,7 @@ void test_serialization_folder() {
 
 void test_serialization_empty_data() {
     WriteRequest *write_request = new_write_request(0);
-    strncpy(write_request->dst_path, "/tmp/trash.txt", dst_path_max_size());
-    write_request->is_folder = true;
+    strncpy(write_request->dst_dir, "/tmp/trash.txt", dst_path_max_size());
 
     test_serialization_helper(write_request);
 
@@ -56,8 +40,7 @@ void test_serialization_empty_data() {
 
 void test_serialization_root_path() {
     WriteRequest *write_request = new_write_request(0);
-    strncpy(write_request->dst_path, "/", dst_path_max_size());
-    write_request->is_folder = true;
+    strncpy(write_request->dst_dir, "/", dst_path_max_size());
 
     test_serialization_helper(write_request);
 
@@ -68,38 +51,13 @@ void test_serialization_binary_data() {
     const char *data = "abcdefg";
 
     WriteRequest *write_request = new_write_request(strlen(data));
-    strncpy(write_request->dst_path, "/tmp/trash.txt", dst_path_max_size());
-    write_request->is_folder = true;
+    strncpy(write_request->dst_dir, "/tmp/trash.txt", dst_path_max_size());
     memcpy(write_request->data, data, strlen(data));
     write_request->data[1] = '\0'; // somewhere in the middle of the data
 
     test_serialization_helper(write_request);
 
     free_write_request(write_request);
-}
-
-void test_split_host_and_dir() {
-    char host[32];
-    char dir[256];
-
-    int split_res = split_host_and_dir("host@/path/to/dir", host, dir);
-    TEST_ASSERT_EQUAL(split_res, 0);
-    TEST_ASSERT_EQUAL_STRING(host, "host");
-    TEST_ASSERT_EQUAL_STRING(dir, "/path/to/dir");
-
-    split_res = split_host_and_dir("0@/", host, dir);
-    TEST_ASSERT_EQUAL(split_res, 0);
-    TEST_ASSERT_EQUAL_STRING(host, "0");
-    TEST_ASSERT_EQUAL_STRING(dir, "/");
-
-    split_res = split_host_and_dir("@/path/to/dir", host, dir);
-    TEST_ASSERT_EQUAL(split_res, -1);
-
-    split_res = split_host_and_dir("host@", host, dir);
-    TEST_ASSERT_EQUAL(split_res, -1);
-
-    split_res = split_host_and_dir("host/path/to/dir", host, dir);
-    TEST_ASSERT_EQUAL(split_res, -1);
 }
 
 void test_join_src_file_and_dst_dir() {
@@ -161,15 +119,14 @@ void test_serialization_long_strings() {
                            "GHreUHuJxyC9Iyj4mpTOcuzPr04DXC5IBDb9zN9vjbGndomzhUjkpNGRU3uoMwo1rpgEtCWHXONltJY";
     TEST_ASSERT_EQUAL(strlen(dst_path), 255);
 
-    strncpy(write_request->dst_path, dst_path, dst_path_max_size());
-    write_request->is_folder = true;
+    strncpy(write_request->dst_dir, dst_path, dst_path_max_size());
     memcpy(write_request->data, data, strlen(data));
 
     test_serialization_helper(write_request);
 
     char *serialized = serialize_write_request(write_request);
     WriteRequest *deserialized = deserialize_write_request(serialized);
-    TEST_ASSERT_EQUAL(strlen(deserialized->dst_path), 255);
+    TEST_ASSERT_EQUAL(strlen(deserialized->dst_dir), 255);
     TEST_ASSERT_EQUAL(deserialized->data_length, 1023);
     free(serialized);
     free_write_request(deserialized);
@@ -180,13 +137,10 @@ int main() {
     UNITY_BEGIN();
 
     RUN_TEST(test_serialization_simple);
-    RUN_TEST(test_serialization_folder);
     RUN_TEST(test_serialization_empty_data);
     RUN_TEST(test_serialization_root_path);
     RUN_TEST(test_serialization_long_strings);
     RUN_TEST(test_serialization_binary_data);
-
-    RUN_TEST(test_split_host_and_dir);
 
     RUN_TEST(test_join_src_file_and_dst_dir);
 

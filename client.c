@@ -25,91 +25,56 @@
  * Команда, выполняемая на стороне клиента, имеет следующий вид: cprem path.to.src.file host@path.to.dst.dir .
  */
 
-static int send_request(const struct addrinfo *addr, const WriteRequest *write_request) {
-    int client_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_fd < 0) {
-        die(__LINE__, "failed to create socket %s", strerror(errno));
-    }
-    int connect_res = connect(client_fd, addr->ai_addr, addr->ai_addrlen);
-    if (connect_res < 0) {
-        die(__LINE__, "failed to connect to server socket %s", strerror(errno));
-    }
+int main(int argc, char **argv) {
+    die_if(argc != 3, "incorrect usage: waiting for cprem path.to.src.file host[:port]@path.to.dst.dir");
 
+    // host@path.to.dst.dir -> host, path.to.dst.dir
+    char *token = NULL, *sep_ptr = NULL, *host_and_dst_path = NULL;
+    host_and_dst_path = sep_ptr = strdup(argv[2]);
+    token = strsep(&sep_ptr, "@");
+    die_if(token == NULL, "invalid destination argument, should be host[:port]@path.to.dst.dir");
+    char *hostname_and_port = strdup(token);
+    token = strsep(&sep_ptr, "@");
+    die_if(token == NULL, "invalid destination argument, should be host[:port]@path.to.dst.dir");
+    char *dst_path = strdup(token);
+
+    // hostname:port -> hostname, port
+    sep_ptr = hostname_and_port;
+    token = strsep(&sep_ptr, ":");
+    die_if(token == NULL, "invalid destination argument, should be host[:port]@path.to.dst.dir");
+    char *hostname = strdup(hostname_and_port);
+    token = strsep(&sep_ptr, ":");
+    char *port = token == NULL ? NULL : strdup(token);
+
+    // connect to server
+    struct addrinfo *addr = resolve_addrinfo(hostname, port == NULL ? DEFAULT_PORT : port);
+    int client_fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+    die_if(client_fd < 0, "failed to create socket %s", strerror(errno));
+    int connect_res = connect(client_fd, addr->ai_addr, addr->ai_addrlen);
+    die_if(connect_res < 0, "failed to connect to server socket %s", strerror(errno));
+
+    // send write request
+    WriteRequest *write_request = new_write_request_from_file(argv[1], dst_path);
     char *buffer = serialize_write_request(write_request);
     int n = write(client_fd, buffer, write_request_max_size());
-    if (n < 0) {
-        die(__LINE__, "failed to write to socket %s", strerror(errno));
-    }
-    free(buffer);
+    die_if(n < 0, "failed to write to socket %s", strerror(errno));
 
-    return client_fd;
-}
-
-static bool response_ok(int client_fd) {
+    // check response
     char response[16];
-    int n = read(client_fd, response, 16);
-    if (n < 0) {
-        die(__LINE__, "failed to read from socket %s", strerror(errno));
-    }
+    n = read(client_fd, response, 16);
+    die_if(n < 0, "failed to read from socket %s", strerror(errno));
     const char *ok = "ok";
-    return strncmp(response, ok, strlen(ok)) == 0;
-}
+    die_if(strncmp(response, ok, strlen(ok)), "failed to perform write request");
 
-static void send_file(const struct addrinfo *addr, const char *src_file, char *dst_path) {
-    join_src_file_and_dst_dir(src_file, dst_path);
-
-    WriteRequest *write_request = new_write_request_from_file(src_file, dst_path);
-    bool is_folder = write_request->is_folder;
-
-    int client_fd = send_request(addr, write_request);
-    bool ok = response_ok(client_fd);
-    if (!ok) {
-        die(__LINE__, "failed to perform write request");
-    }
-    close(client_fd);
-
-    free_write_request(write_request);
-
-    if (is_folder) {
-        char src_path[256];
-        DIR *dir;
-        struct dirent *ent;
-        if ((dir = opendir(src_file)) != NULL) {
-            while ((ent = readdir(dir)) != NULL) {
-                if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
-                    continue;
-                strncpy(src_path, src_file, 256);
-                strncat(src_path, "/", 2);
-                strncat(src_path, ent->d_name, 256);
-                printf("Recursing for %s\n", src_path);
-                send_file(addr, src_path, dst_path);
-                remove_last_path_part(dst_path);
-            }
-            closedir(dir);
-        } else {
-            die(__LINE__, "failed to open directory %s: %s", src_file, strerror(errno));
-        }
-    }
-}
-
-int main(int argc, char **argv) {
-    if (argc != 3) {
-        die(__LINE__, "incorrect usage: waiting for ./rcp_client path.to.src.file host@path.to.dst.dir");
-    }
-
-    const char *src_file = argv[1];
-    char hostname[32];
-    const char *portname = "8888"; // hardcode, consider using host:port@path.to.dst.dir format
-    char dst_path[256];
-    int split_res = split_host_and_dir(argv[2], hostname, dst_path);
-    if (split_res != 0) {
-        die(__LINE__, "incorrect format of host and/or destination dir: waiting for host@path.to.dst.dir");
-    }
-
-    struct addrinfo *addr = get_addrinfo_simple(hostname, portname);
-
-    send_file(addr, src_file, dst_path);
-
+    // cleanup
     freeaddrinfo(addr);
+    free(host_and_dst_path);
+    free(hostname_and_port);
+    free(hostname);
+    free(port);
+    free(dst_path);
+    free_write_request(write_request);
+    free(buffer);
+    close(client_fd);
     return 0;
 }
