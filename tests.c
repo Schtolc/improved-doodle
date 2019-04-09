@@ -60,21 +60,6 @@ void test_serialization_binary_data() {
     free_write_request(write_request);
 }
 
-void test_remove_last_path_part() {
-    char path[256];
-    strncpy(path, "/cpy/trash.txt", 256);
-    remove_last_path_part(path);
-    TEST_ASSERT_EQUAL_STRING(path, "/cpy");
-
-    strncpy(path, "/cpy/trash.txt/", 256);
-    remove_last_path_part(path);
-    TEST_ASSERT_EQUAL_STRING(path, "/cpy");
-
-    strncpy(path, "/cpy", 256);
-    remove_last_path_part(path);
-    TEST_ASSERT_EQUAL_STRING(path, "/");
-}
-
 void test_serialization_long_strings() {
     const char *data = "VMLcam2W2ldtZsruqzDp3KVsDJWwzSl3XcKEix3EKY0aDjAzgBTf80Wt3Z81k156K25NtkitoP754GONydrhf8cpgKZw"
                        "zorQe5s2hDeUyNhR3bzsgkR3Ao6k7WcEFeWJdTZIj73wK6AVquAJqxMxjcXJEMWtchaNggMQklj8MgU2b2ukFnOnNc6u"
@@ -118,8 +103,6 @@ int main() {
     RUN_TEST(test_serialization_root_path);
     RUN_TEST(test_serialization_long_strings);
     RUN_TEST(test_serialization_binary_data);
-
-    RUN_TEST(test_remove_last_path_part);
 
     return UNITY_END();
 }

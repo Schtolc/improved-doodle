@@ -82,11 +82,12 @@ WriteRequest *new_write_request(int data_length) {
 }
 
 WriteRequest *load_write_request(char *file_path, const char *dst_dir) {
-    char file_name[64];
-    basename_r(file_path, file_name);
-    remove_last_path_part(file_path);
+    char * file_path_cpy = strdup(file_path);
+    char * file_path_cpy2 = strdup(file_path);
+    char * file_name = basename(file_path_cpy);
+    char * dir_name = dirname(file_path_cpy2);
 
-    int chdir_res = chdir(file_path);
+    int chdir_res = chdir(dir_name);
     die_if(chdir_res == -1, "failed to chdir %s", strerror(errno));
 
     char tar_command[256];
@@ -105,6 +106,9 @@ WriteRequest *load_write_request(char *file_path, const char *dst_dir) {
     write_request = new_write_request(filelen);
     strncpy(write_request->dst_dir, dst_dir, dst_path_max_size());
     fread(write_request->data, filelen, 1, fileptr);
+    
+    free(file_path_cpy);
+    free(file_path_cpy2);
     fclose(fileptr);
     return write_request;
 }

@@ -35,19 +35,3 @@ struct addrinfo *resolve_addrinfo(const char *hostname, const char *port) {
 
     return addr;
 }
-
-void remove_last_path_part(char *path) {
-    int i = strlen(path) - 1;
-    while (path[i] == '/')
-        --i;
-    for (; i >= 0; --i) {
-        if (path[i] == '/') {
-            path[i] = '\0';
-            break;
-        }
-    }
-    if (strlen(path) == 0) {
-        path[0] = '/';
-        path[1] = '\0';
-    }
-}
