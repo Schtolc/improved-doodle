@@ -11,7 +11,6 @@
 #include "unistd.h"
 
 #include "helpers.h"
-#include "write_request.h"
 
 /*
  * NET
@@ -20,27 +19,25 @@
  * Команда, выполняемая на стороне клиента, имеет следующий вид: cprem path.to.src.file host@path.to.dst.dir .
  */
 
+/*
+ *
+ */
 static void handle_session(int session_fd) {
-    // read request
-    int request_buffer_size = write_request_max_size();
-    char *request = (char *) calloc(request_buffer_size, sizeof(char));
-    int read_count = read(session_fd, request, request_buffer_size);
+    char dst_dir[DST_DIR_SIZE];
+    int read_count = read(session_fd, dst_dir, DST_DIR_SIZE);
     die_if(read_count < 0, "failed to read from socket %s", strerror(errno));
+    dst_dir[read_count] = '\0';
+    printf("Recieved destionation directory %s, len %d\n", dst_dir, read_count);
 
-    // process request
-    WriteRequest *write_request = deserialize_write_request(request);
-    printf("Recieved write request. [dst_dir: %s][data_len: %d]\n",
-           write_request->dst_dir,
-           write_request->data_length);
-    dump_write_request(write_request);
+    int chdir_res = chdir(dst_dir);
+    die_if(chdir_res == -1, "failed to chdir %s", strerror(errno));
 
-    // write response
-    const char *ok = "ok";
-    int write_count = write(session_fd, ok, strlen(ok));
-    die_if(write_count < 0, "failed to write to socket %s", strerror(errno));
-
-    free_write_request(write_request);
-    free(request);
+    close(0);
+    int dup_res = dup(session_fd);
+    die_if(dup_res == -1, "failed to dup %s", strerror(errno));
+    char *argv[2] = {"tar", "-xzv"};
+    execvp(argv[0], argv);
+    die_if(dup_res == -1, "failed to exec tar %s", strerror(errno));
 }
 
 int main(int argc, char **argv) {

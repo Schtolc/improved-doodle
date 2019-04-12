@@ -15,7 +15,6 @@
 #include "unistd.h"
 
 #include "helpers.h"
-#include "write_request.h"
 
 
 /*
@@ -36,7 +35,8 @@ int main(int argc, char **argv) {
     char *hostname_and_port = strdup(token);
     token = strsep(&sep_ptr, "@");
     die_if(token == NULL, "invalid destination argument, should be host[:port]@path.to.dst.dir");
-    char *dst_path = strdup(token);
+    char dst_path[DST_DIR_SIZE];
+    strncpy(dst_path, token, DST_DIR_SIZE);
 
     // hostname:port -> hostname, port
     sep_ptr = hostname_and_port;
@@ -46,6 +46,12 @@ int main(int argc, char **argv) {
     token = strsep(&sep_ptr, ":");
     char *port = token == NULL ? NULL : strdup(token);
 
+    // /path/to/src/file -> /path/to/src, file
+    char *file_path_cpy = strdup(argv[1]);
+    char *file_path_cpy2 = strdup(argv[1]);
+    char *file_name = basename(file_path_cpy);
+    char *dir_name = dirname(file_path_cpy2);
+
     // connect to server
     struct addrinfo *addr = resolve_addrinfo(hostname, port == NULL ? DEFAULT_PORT : port);
     int client_fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
@@ -54,27 +60,27 @@ int main(int argc, char **argv) {
     die_if(connect_res < 0, "failed to connect to server socket %s", strerror(errno));
 
     // send write request
-    WriteRequest *write_request = load_write_request(argv[1], dst_path);
-    char *buffer = serialize_write_request(write_request);
-    int n = write(client_fd, buffer, write_request_max_size());
+    int n = write(client_fd, dst_path, strlen(dst_path));
     die_if(n < 0, "failed to write to socket %s", strerror(errno));
 
-    // check response
-    char response[16];
-    n = read(client_fd, response, 16);
-    die_if(n < 0, "failed to read from socket %s", strerror(errno));
-    const char *ok = "ok";
-    die_if(strncmp(response, ok, strlen(ok)), "failed to perform write request");
+    int chdir_res = chdir(dir_name);
+    die_if(chdir_res == -1, "failed to chdir %s", strerror(errno));
 
-    // cleanup
+    close(1);
+    int dup_res = dup(client_fd);
+    die_if(dup_res == -1, "failed to dup %s", strerror(errno));
+
     freeaddrinfo(addr);
     free(host_and_dst_path);
     free(hostname_and_port);
     free(hostname);
     free(port);
-    free(dst_path);
-    free_write_request(write_request);
-    free(buffer);
-    close(client_fd);
+    free(file_path_cpy);
+    free(file_path_cpy2);
+
+    char *tar_argv[] = {"tar", "-czv", file_name};
+    execvp(tar_argv[0], tar_argv);
+    die_if(dup_res == -1, "failed to exec tar %s", strerror(errno));
+
     return 0;
 }
